@@ -6,12 +6,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Set environment variable
-ENV REACT_APP_FAST_API_HOST=https://histo.vgg.fiit.stuba.sk
-
+# Accept build argument and set as environment variable
+ARG REACT_APP_FAST_API_HOST=""
+ENV REACT_APP_FAST_API_HOST=${REACT_APP_FAST_API_HOST}
 
 COPY . .
 RUN npm run build
+
+CMD ["npm", "start"]
 
 # Stage 2: Serve with Nginx
 FROM nginx:stable-alpine

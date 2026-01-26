@@ -1,47 +1,50 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './Login.css';
-import vggLogo from '../../assets/images/VGG.png';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./Login.css";
+import vggLogo from "../../assets/images/VGG.png";
 
 interface LoginProps {
   onLogin: (isAuthenticated: boolean) => void;
 }
 
 const Login = ({ onLogin }: LoginProps) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
+      formData.append("username", username);
+      formData.append("password", password);
 
-      const response = await fetch(`${process.env.REACT_APP_FAST_API_HOST}/ikem_api/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData,
-      });
+      const response = await fetch(
+        `${process.env.REACT_APP_FAST_API_HOST}/ikem_api/token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: formData,
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('lastActivity', Date.now().toString());
+        localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("isAuthenticated", "true");
+        localStorage.setItem("lastActivity", Date.now().toString());
         onLogin(true);
-        navigate('/');
+        navigate("/");
       } else {
-        setError('Invalid credentials');
+        setError("Invalid credentials");
       }
     } catch (error) {
-      setError('An error occurred during login');
-      console.error('Login error:', error);
+      setError("An error occurred during login");
+      console.error("Login error:", error);
     }
   };
 
@@ -75,11 +78,13 @@ const Login = ({ onLogin }: LoginProps) => {
               required
             />
           </div>
-          <button type="submit" className="login-button">Login</button>
+          <button type="submit" className="login-button">
+            Login
+          </button>
         </form>
       </div>
     </div>
   );
 };
 
-export default Login; 
+export default Login;

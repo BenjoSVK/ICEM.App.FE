@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import Navbar from './layout/Navbar';
 import Home from '../pages/Home';
@@ -7,6 +7,7 @@ import ImageUpload from '../pages/ImageUpload';
 import TiffList from '../pages/TiffList';
 import GeoJSONList from '../pages/GeoJSONList';
 import Login from './auth/Login';
+import { AuthService } from '../application/Application/AuthService';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -25,23 +26,68 @@ const ProtectedRoute = ({ children, isAuthenticated }: ProtectedRouteProps) => {
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     // Initialize state from localStorage during first render
-    const storedAuth = localStorage.getItem('isAuthenticated');
-    const storedLastActivity = localStorage.getItem('lastActivity');
-    
-    if (storedAuth === 'true' && storedLastActivity) {
-      const timeSinceLastActivity = Date.now() - parseInt(storedLastActivity);
-      if (timeSinceLastActivity < TIMEOUT_DURATION) {
-        return true;
-      }
-    }
+    // Start with false - will be validated on mount
     return false;
   });
+
+  const [isValidating, setIsValidating] = useState(true);
 
   const [lastActivity, setLastActivity] = useState(() => {
     // Initialize lastActivity from localStorage or current time
     const storedLastActivity = localStorage.getItem('lastActivity');
     return storedLastActivity ? parseInt(storedLastActivity) : Date.now();
   });
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('lastActivity');
+    setIsAuthenticated(false);
+  }, []);
+
+  // Validate token on mount if it exists in localStorage
+  useEffect(() => {
+    const validateAuth = async () => {
+      const storedAuth = localStorage.getItem('isAuthenticated');
+      const storedToken = localStorage.getItem('access_token');
+      const storedLastActivity = localStorage.getItem('lastActivity');
+      
+      // If no token or auth flag, user is not authenticated
+      if (!storedToken || storedAuth !== 'true') {
+        setIsValidating(false);
+        setIsAuthenticated(false);
+        return;
+      }
+
+      // Check timeout first
+      if (storedLastActivity) {
+        const timeSinceLastActivity = Date.now() - parseInt(storedLastActivity);
+        if (timeSinceLastActivity >= TIMEOUT_DURATION) {
+          handleLogout();
+          setIsValidating(false);
+          return;
+        }
+      }
+
+      // Validate token with backend
+      try {
+        const isValid = await AuthService.validateToken();
+        if (isValid) {
+          setIsAuthenticated(true);
+        } else {
+          // Token is invalid, logout
+          handleLogout();
+        }
+      } catch (error) {
+        // Network error or invalid token
+        handleLogout();
+      } finally {
+        setIsValidating(false);
+      }
+    };
+
+    validateAuth();
+  }, [handleLogout]);
 
   useEffect(() => {
     // Set up activity listeners
@@ -76,7 +122,7 @@ const App = () => {
       });
       clearInterval(inactivityCheck);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, handleLogout]);
 
   // Update localStorage when authentication state changes
   useEffect(() => {
@@ -85,12 +131,16 @@ const App = () => {
     }
   }, [isAuthenticated]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('lastActivity');
-    setIsAuthenticated(false);
-  };
+  // Show loading state while validating token
+  if (isValidating) {
+    return (
+      <div className="App">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
