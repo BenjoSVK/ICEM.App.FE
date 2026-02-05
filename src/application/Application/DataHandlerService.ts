@@ -28,8 +28,8 @@ export class DataHandlerService extends DataPreparationService{
             const hasInvalidFiles = Object.keys(zip.files).some(filename => {
                 const lowercaseFile = filename.toLowerCase();
                 return !filename.endsWith('/') && // Skip directories
-                       !lowercaseFile.endsWith('.tif') && 
-                       !lowercaseFile.endsWith('.tiff');
+                !lowercaseFile.endsWith('.tif') && 
+                !lowercaseFile.endsWith('.tiff');
             });
 
             if (hasInvalidFiles) {
@@ -41,6 +41,7 @@ export class DataHandlerService extends DataPreparationService{
 
             return { isValid: true, message: 'File is valid' };
         } catch (error) {
+            console.log(error)
             return { isValid: false, message: 'Invalid ZIP file format' };
         }
     }

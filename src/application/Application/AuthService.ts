@@ -47,7 +47,7 @@ export class AuthService {
           localStorage.removeItem('access_token');
           localStorage.removeItem('isAuthenticated');
           window.location.href = '/login';
-        throw response;
+        throw new Error('Unauthorized');
     }
     
     return response;
