@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import '../styles/Table.css';
 import { DataHandlerService } from '../application/Application/DataHandlerService';
 import { TiffRecord } from '../application/Domain/Records';
@@ -11,7 +11,7 @@ import { NotificationService } from '../application/Application/NotificationServ
 
 const MODEL_OPTIONS = [
     {
-        value: 'VPP 2024',
+        value: 'VPP 2026',
         label: 'IEDL',
         description: 'Latest model used for segmentation and prediction of hearth tissue structures'
     }
@@ -29,11 +29,12 @@ function TiffList() {
     const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [pollingTasks, setPollingTasks] = useState<Set<string>>(new Set());
-    const [selectedModel, setSelectedModel] = useState<string>('VPP 2024');
+    const [selectedModel, setSelectedModel] = useState<string>('VPP 2026');
     const dataService = new DataHandlerService();
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
     const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+    const pollingIntervalsRef = useRef<{ [taskId: string]: ReturnType<typeof setInterval> }>({});
 
     // Load records and check for existing tasks
     useEffect(() => {
@@ -74,22 +75,32 @@ function TiffList() {
         fetchTiffFiles();
     }, []);
 
-    // Status polling effect
+    // Status polling effect: start polling for each Processing record, keep intervals in ref so completing one task doesn't stop others
     useEffect(() => {
-        const intervals: { [key: string]: NodeJS.Timeout } = {};
-        
-        // Only start polling for tasks that are in Processing state
-        records
-            .filter(record => record.status === 'Processing' && record.taskId)
-            .forEach(record => {
-                if (record.taskId && !intervals[record.taskId]) {
-                    intervals[record.taskId] = startPolling(record.taskId);
-                }
-            });
+        const taskIdsToPoll = new Set(
+            records
+                .filter(record => record.status === 'Processing' && record.taskId)
+                .map(record => record.taskId as string)
+        );
 
-        // Cleanup function
+        taskIdsToPoll.forEach(taskId => {
+            if (!pollingIntervalsRef.current[taskId]) {
+                pollingIntervalsRef.current[taskId] = startPolling(taskId);
+            }
+        });
+
+        // Clear only intervals for tasks that are no longer in the set
+        Object.keys(pollingIntervalsRef.current).forEach(taskId => {
+            if (!taskIdsToPoll.has(taskId)) {
+                clearInterval(pollingIntervalsRef.current[taskId]);
+                delete pollingIntervalsRef.current[taskId];
+            }
+        });
+
         return () => {
-            Object.values(intervals).forEach(interval => clearInterval(interval));
+            // On unmount, clear all
+            Object.values(pollingIntervalsRef.current).forEach(interval => clearInterval(interval));
+            pollingIntervalsRef.current = {};
         };
     }, [records, pollingTasks.size]);
 
@@ -131,9 +142,9 @@ function TiffList() {
         try {
             console.log("Processing records:", selectedRecords);
             let response: PredictionResponse | undefined;
-            if (selectedModel === 'VPP 2024') {
+            if (selectedModel === 'VPP 2026') {
                 console.log(selectedRecords);
-                response = await dataService.predictStructureVPP2024(selectedRecords);
+                response = await dataService.predictStructureVPP2026(selectedRecords);
             } else if (selectedModel === 'VPP 2023') {
                 // TODO: Implement new model
             }
@@ -231,7 +242,8 @@ function TiffList() {
                     });
                     setCompletedTasks(prev => new Set(prev).add(taskId));
                     clearInterval(pollInterval);
-                    
+                    delete pollingIntervalsRef.current[taskId];
+
                     // Add notification
                     const fileName = records.find(r => r.taskId === taskId)?.name || 'Unknown file';
                     NotificationService.notifyTaskStatus(taskId, status.status, fileName);
@@ -362,9 +374,7 @@ function TiffList() {
                                 <th onClick={toggleSortDirection}>
                                     Date {sortDirection === 'asc' ? '↑' : '↓'}
                                 </th>
-                                {/* <th>Model</th> */}
                                 <th>Status</th>
-                                {/* <th>Results</th> */}
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -380,16 +390,6 @@ function TiffList() {
                                     </td>
                                     <td>{record.name}</td>
                                     <td>{record.date}</td>
-                                    {/* <td>
-                                        <select className="model-select-inline">
-                                            <option value="">Select model</option>
-                                            {MODEL_OPTIONS.map(option => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </td> */}
                                     <td>
                                         <span className={`status-badge ${
                                             record.status === 'Ready' ? 'status-imported' :
@@ -400,13 +400,6 @@ function TiffList() {
                                             {record.status}
                                         </span>
                                     </td>
-                                    {/* <td>
-                                        {record.status === 'Processed' && (
-                                            <button className="icon-button">
-                                                <DownloadIcon />
-                                            </button>
-                                        )}
-                                    </td> */}
                                     <td>
                                         <button 
                                             className="icon-button"

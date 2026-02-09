@@ -11,6 +11,9 @@
 # production
 /build
 
+# SSL certificates (never commit private keys)
+/certs
+
 # misc
 .DS_Store
 .env

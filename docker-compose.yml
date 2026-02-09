@@ -1,5 +1,5 @@
 services:
-  vgg_hist_fe:
+  vgg_histo_fe:
     container_name: vgg_histo_frontend
     image: tanczi0810/ikem-fe:1.0.0
     build:

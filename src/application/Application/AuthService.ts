@@ -43,13 +43,18 @@ export class AuthService {
     }
     
     if (response.status === 401) {
-          // Token expired or invalid
+          // Token expired or invalid; keep processingTasks so polling can resume after re-login
           localStorage.removeItem('access_token');
           localStorage.removeItem('isAuthenticated');
+          const returnPath = window.location.pathname + window.location.search;
+          sessionStorage.setItem('loginRedirect', returnPath);
           window.location.href = '/login';
         throw new Error('Unauthorized');
     }
-    
+    if (response.ok)
+    {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    }
     return response;
   }
 } 
