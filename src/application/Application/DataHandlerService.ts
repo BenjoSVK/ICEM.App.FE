@@ -20,7 +20,7 @@ export class DataHandlerService extends DataPreparationService{
         if (!file.name.toLowerCase().endsWith('.zip')) {
             return { isValid: false, message: 'Please select a ZIP file' };
         }
-
+        // Fix zip upload and validation
         try {
             const JSZip = (await import('jszip')).default;
             const zip = await JSZip.loadAsync(file);
@@ -65,6 +65,7 @@ export class DataHandlerService extends DataPreparationService{
         
         try {
             setProgressText('Uploading data...');
+            
             NotificationService.addNotification({
                 message: `Uploading ${file.name}...`,
                 type: 'info'
@@ -81,7 +82,7 @@ export class DataHandlerService extends DataPreparationService{
             if (response.ok) {
                 setProgressText('Data uploaded successfully');
                 NotificationService.addNotification({
-                    message: `${file.name} uploaded successfully`,
+                    message: `${file.name} was uploaded successfully`,
                     type: 'success'
                 });
                 console.log('File uploaded successfully');
@@ -135,7 +136,7 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
-    public async predictStructureVPP2024(selectedIds: string[]): Promise<PredictionResponse> {
+    public async predictStructureVPP2026(selectedIds: string[]): Promise<PredictionResponse> {
         try {
             // const integerIds = selectedIds.map(id => parseInt(id.replace(/\D/g, '')));
             const integerIds = selectedIds.map(id => id.substring(0, id.lastIndexOf('.')));

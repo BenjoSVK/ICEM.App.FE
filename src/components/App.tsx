@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
   isAuthenticated: boolean;
 }
 
-const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+const TIMEOUT_DURATION = 1 * 60 * 1000; // 30 minutes in milliseconds of inactivity
 
 const ProtectedRoute = ({ children, isAuthenticated }: ProtectedRouteProps) => {
   if (!isAuthenticated) {
@@ -38,11 +38,16 @@ const App = () => {
     return storedLastActivity ? parseInt(storedLastActivity) : Date.now();
   });
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback((returnPath?: string) => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('lastActivity');
-    setIsAuthenticated(false);
+    if (returnPath) {
+      sessionStorage.setItem('loginRedirect', returnPath);
+      window.location.href = '/login';
+    } else {
+      setIsAuthenticated(false);
+    }
   }, []);
 
   // Validate token on mount if it exists in localStorage
@@ -111,7 +116,8 @@ const App = () => {
       if (storedLastActivity && isAuthenticated) {
         const timeSinceLastActivity = currentTime - parseInt(storedLastActivity);
         if (timeSinceLastActivity >= TIMEOUT_DURATION) {
-          handleLogout();
+          const returnPath = window.location.pathname + window.location.search;
+          handleLogout(returnPath);
         }
       }
     }, 60000); // Check every minute

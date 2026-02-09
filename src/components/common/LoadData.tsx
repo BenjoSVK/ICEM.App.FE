@@ -6,7 +6,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import InfoIcon from "@mui/icons-material/Info";
 
 function LoadData() {
-  const [folderPath, setFolderPath] = useState("not selected");
+  const [folderPath, setFolderPath] = useState("Not selected");
   const [progressText, setProgressText] = useState("Data not uploaded");
   const [isUploaded, setIsUploaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -15,7 +15,7 @@ function LoadData() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    setFolderPath(selectedFile?.name || "not selected");
+    setFolderPath(selectedFile?.name || "Not selected");
     setIsUploaded(false);
   };
 
@@ -40,15 +40,15 @@ function LoadData() {
         </div>
 
         <div className="LoadData-uploadSection">
-          {/* <div className="LoadData-requirements">
+          {<div className="LoadData-requirements">
                         <h3><InfoIcon className="LoadData-infoIcon" /> Upload Requirements</h3>
                         <ul>
                             <li>File must be in ZIP format</li>
-                            <li>Maximum file size: 500MB</li>
+                            {/* <li>Maximum file size: 500MB</li> */}
                             <li>Supported image formats: TIFF, SVS</li>
-                            <li>All images must be in the root of the ZIP file</li>
+                            {/* <li>All images must be in the root of the ZIP file</li> */}
                         </ul>
-                    </div> */}
+                    </div>}
 
           <div className="LoadData-uploadBox">
             <UploadFileIcon className="LoadData-uploadIcon" />
@@ -72,7 +72,7 @@ function LoadData() {
             <button
               className="LoadData-button"
               onClick={handleUpload}
-              disabled={folderPath === "not selected"}
+              disabled={folderPath === "Not selected"}
             >
               Submit
             </button>

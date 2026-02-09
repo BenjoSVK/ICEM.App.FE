@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import "./Login.css";
 import vggLogo from "../../assets/images/VGG.png";
 
@@ -12,6 +12,7 @@ const Login = ({ onLogin }: LoginProps) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +39,13 @@ const Login = ({ onLogin }: LoginProps) => {
         localStorage.setItem("isAuthenticated", "true");
         localStorage.setItem("lastActivity", Date.now().toString());
         onLogin(true);
-        navigate("/");
+        const redirect = sessionStorage.getItem("loginRedirect") ?? searchParams.get("redirect");
+        if (redirect && redirect.startsWith("/")) {
+          sessionStorage.removeItem("loginRedirect");
+          navigate(redirect);
+        } else {
+          navigate("/");
+        }
       } else {
         setError("Invalid credentials");
       }

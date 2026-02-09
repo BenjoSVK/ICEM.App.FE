@@ -82,6 +82,17 @@ Build and run with Docker Compose:
 docker-compose up --build
 ```
 
+### Production with HTTPS
+
+For production, use SSL/TLS and serve the app over HTTPS:
+
+1. Obtain certificates (e.g. [Let's Encrypt](https://letsencrypt.org/)) and place `fullchain.pem` and `privkey.pem` in a `certs/` directory (or mount your certificate path).
+2. Run the production stack:
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+3. See [docs/HTTPS_PRODUCTION.md](docs/HTTPS_PRODUCTION.md) for detailed setup, certificate options, and security headers.
+
 ### Deployment to live VGG server
 
 1. Push updated code to github
