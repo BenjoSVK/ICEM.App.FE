@@ -34,7 +34,8 @@ function TiffList() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
     const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
-    const pollingIntervalsRef = useRef<{ [taskId: string]: ReturnType<typeof setInterval> }>({});
+    const pollingIntervalsRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+    const isMountedRef = useRef(true);
 
     // Load records and check for existing tasks
     useEffect(() => {
@@ -77,6 +78,7 @@ function TiffList() {
 
     // Status polling effect: start polling for each Processing record, keep intervals in ref so completing one task doesn't stop others
     useEffect(() => {
+        isMountedRef.current = true;
         const taskIdsToPoll = new Set(
             records
                 .filter(record => record.status === 'Processing' && record.taskId)
@@ -90,16 +92,20 @@ function TiffList() {
         });
 
         // Clear only intervals for tasks that are no longer in the set
-        Object.keys(pollingIntervalsRef.current).forEach(taskId => {
+        const currentIntervals = pollingIntervalsRef.current;
+        Object.keys(currentIntervals).forEach(taskId => {
             if (!taskIdsToPoll.has(taskId)) {
-                clearInterval(pollingIntervalsRef.current[taskId]);
+                clearInterval(currentIntervals[taskId]);
                 delete pollingIntervalsRef.current[taskId];
             }
         });
 
         return () => {
-            // On unmount, clear all
-            Object.values(pollingIntervalsRef.current).forEach(interval => clearInterval(interval));
+            isMountedRef.current = false;
+            const intervals = pollingIntervalsRef.current;
+            Object.keys(intervals).forEach(taskId => {
+                clearInterval(intervals[taskId]);
+            });
             pollingIntervalsRef.current = {};
         };
     }, [records, pollingTasks.size]);
@@ -167,14 +173,14 @@ function TiffList() {
                     return record;
                 }));
                 
-                // Add task to polling set and start polling
+                // Add task to polling set; the useEffect will start polling for this task
                 setPollingTasks(prev => new Set(prev).add(response!.task_id));
-                startPolling(response.task_id);
-                
+
                 setSelectedRecords([]); // Clear selection
 
                 selectedRecords.forEach(recordId => {
-                    const fileName = records.find(r => r.id === recordId)?.name || 'Unknown file';
+                    const record = records.find(r => r.id === recordId);
+                    const fileName = record ? record.name : 'Unknown file';
                     NotificationService.notifyTaskStatus(response?.task_id || '', 'Pending', fileName);
                 });
             }
@@ -207,8 +213,18 @@ function TiffList() {
 
     const startPolling = (taskId: string) => {
         const pollInterval = setInterval(async () => {
+            if (!isMountedRef.current) {
+                clearInterval(pollInterval);
+                delete pollingIntervalsRef.current[taskId];
+                return;
+            }
             try {
                 const status = await dataService.checkTaskStatus(taskId);
+                if (!isMountedRef.current) {
+                    clearInterval(pollInterval);
+                    delete pollingIntervalsRef.current[taskId];
+                    return;
+                }
                 setRecords(prev => prev.map(record => {
                     if (record.taskId === taskId) {
                         let displayStatus;
@@ -234,6 +250,9 @@ function TiffList() {
                 }));
                 
                 if (status.status === 'Success' || status.status === 'Failed') {
+                    clearInterval(pollInterval);
+                    delete pollingIntervalsRef.current[taskId];
+                    if (!isMountedRef.current) return;
                     dataService.removeTask(taskId);
                     setPollingTasks(prev => {
                         const newTasks = new Set(prev);
@@ -241,15 +260,19 @@ function TiffList() {
                         return newTasks;
                     });
                     setCompletedTasks(prev => new Set(prev).add(taskId));
-                    clearInterval(pollInterval);
-                    delete pollingIntervalsRef.current[taskId];
 
                     // Add notification
-                    const fileName = records.find(r => r.taskId === taskId)?.name || 'Unknown file';
+                    const record = records.find(r => r.taskId === taskId);
+                    const fileName = record ? record.name : 'Unknown file';
                     NotificationService.notifyTaskStatus(taskId, status.status, fileName);
                 }
             } catch (error) {
-                console.error('Error polling status:', error);
+                if (isMountedRef.current) {
+                    console.error('Error polling status:', error);
+                } else {
+                    clearInterval(pollInterval);
+                    delete pollingIntervalsRef.current[taskId];
+                }
             }
         }, 5000);
 

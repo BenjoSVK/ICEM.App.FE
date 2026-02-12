@@ -1,24 +1,27 @@
 export class DataPreparationService {
-    
-    constructor() {
-    }
+    constructor() {}
 
-    public async prepareInputData(file: Blob) {
+    /**
+     * Reads the blob and returns its base64 string representation.
+     */
+    public async prepareInputData(file: Blob): Promise<string> {
         const fileData = await this.readFile(file);
         const base64String = this.arrayBufferToBase64(fileData);
         return base64String;
     }
 
-    private readFile(file: Blob) {
+    /** Read blob as ArrayBuffer via FileReader. */
+    private readFile(file: Blob): Promise<ArrayBuffer> {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
+            reader.onload = () => resolve(reader.result as ArrayBuffer);
             reader.onerror = reject;
             reader.readAsArrayBuffer(file);
         });
     }
-    
-    private arrayBufferToBase64(buffer: any) {
+
+    /** Encode ArrayBuffer as base64 string. */
+    private arrayBufferToBase64(buffer: ArrayBuffer): string {
         let binary = '';
         const bytes = new Uint8Array(buffer);
         const len = bytes.byteLength;

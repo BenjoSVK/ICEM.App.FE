@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import "./Login.css";
 import vggLogo from "../../assets/images/VGG.png";
+import { AuthService } from "../../application/Application/AuthService";
 
 interface LoginProps {
   onLogin: (isAuthenticated: boolean) => void;
@@ -26,6 +27,7 @@ const Login = ({ onLogin }: LoginProps) => {
         `${process.env.REACT_APP_FAST_API_HOST}/ikem_api/token`,
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
           },
@@ -35,7 +37,8 @@ const Login = ({ onLogin }: LoginProps) => {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem("access_token", data.access_token);
+        const expiresIn = typeof data.expires_in === "number" ? data.expires_in : 900;
+        AuthService.setAccessToken(data.access_token, expiresIn);
         localStorage.setItem("isAuthenticated", "true");
         localStorage.setItem("lastActivity", Date.now().toString());
         onLogin(true);

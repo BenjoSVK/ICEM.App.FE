@@ -11,7 +11,7 @@ A modern React-based web application for processing and analyzing histology slid
   - File deletion with confirmation
 - 🤖 **ML Model Integration**
   - Support for multiple ML models
-  - IEDL (VPP 2024) model integration
+  - IEDL (VPP 2026) model integration
   - Real-time processing status updates
 - 🔐 **Authentication System**
   - Secure token-based authentication
