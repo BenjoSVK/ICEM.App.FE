@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
   isAuthenticated: boolean;
 }
 
-const TIMEOUT_DURATION = 1 * 60 * 1000; // 30 minutes in milliseconds of inactivity
+const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds of inactivity
 
 const ProtectedRoute = ({ children, isAuthenticated }: ProtectedRouteProps) => {
   if (!isAuthenticated) {
@@ -38,8 +38,16 @@ const App = () => {
     return storedLastActivity ? parseInt(storedLastActivity) : Date.now();
   });
 
-  const handleLogout = useCallback((returnPath?: string) => {
-    localStorage.removeItem('access_token');
+  const handleLogout = useCallback(async (returnPath?: string) => {
+    try {
+      await fetch(`${process.env.REACT_APP_FAST_API_HOST}/ikem_api/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // ignore
+    }
+    AuthService.clearAccessToken();
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('lastActivity');
     if (returnPath) {
@@ -50,23 +58,12 @@ const App = () => {
     }
   }, []);
 
-  // Validate token on mount if it exists in localStorage
+  // On mount: try to restore session via refresh token (httpOnly cookie)
   useEffect(() => {
     const validateAuth = async () => {
-      const storedAuth = localStorage.getItem('isAuthenticated');
-      const storedToken = localStorage.getItem('access_token');
       const storedLastActivity = localStorage.getItem('lastActivity');
-      
-      // If no token or auth flag, user is not authenticated
-      if (!storedToken || storedAuth !== 'true') {
-        setIsValidating(false);
-        setIsAuthenticated(false);
-        return;
-      }
-
-      // Check timeout first
       if (storedLastActivity) {
-        const timeSinceLastActivity = Date.now() - parseInt(storedLastActivity);
+        const timeSinceLastActivity = Date.now() - parseInt(storedLastActivity, 10);
         if (timeSinceLastActivity >= TIMEOUT_DURATION) {
           handleLogout();
           setIsValidating(false);
@@ -74,18 +71,11 @@ const App = () => {
         }
       }
 
-      // Validate token with backend
       try {
-        const isValid = await AuthService.validateToken();
-        if (isValid) {
-          setIsAuthenticated(true);
-        } else {
-          // Token is invalid, logout
-          handleLogout();
-        }
-      } catch (error) {
-        // Network error or invalid token
-        handleLogout();
+        const hasSession = await AuthService.refreshToken();
+        setIsAuthenticated(hasSession);
+      } catch {
+        setIsAuthenticated(false);
       } finally {
         setIsValidating(false);
       }
@@ -93,6 +83,17 @@ const App = () => {
 
     validateAuth();
   }, [handleLogout]);
+
+  // Proactive refresh: refresh access token before it expires (every 1 min check)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const refreshInterval = setInterval(async () => {
+      if (AuthService.isTokenExpiringSoon(2 * 60 * 1000)) {
+        await AuthService.refreshToken();
+      }
+    }, 60000);
+    return () => clearInterval(refreshInterval);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // Set up activity listeners
@@ -114,7 +115,7 @@ const App = () => {
       const storedLastActivity = localStorage.getItem('lastActivity');
       
       if (storedLastActivity && isAuthenticated) {
-        const timeSinceLastActivity = currentTime - parseInt(storedLastActivity);
+        const timeSinceLastActivity = currentTime - parseInt(storedLastActivity, 10);
         if (timeSinceLastActivity >= TIMEOUT_DURATION) {
           const returnPath = window.location.pathname + window.location.search;
           handleLogout(returnPath);

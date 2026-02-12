@@ -1,7 +1,13 @@
-import { Notification } from '../../components/common/NotificationIcon';
+import { Notification } from "../../components/common/NotificationIcon";
 
+/**
+ * Service for showing in-app notifications (success, error, info).
+ */
 export class NotificationService {
-    public static addNotification(notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) {
+    /** Add a notification (assigns id, timestamp, read) and dispatch to UI. */
+    public static addNotification(
+        notification: Omit<Notification, "id" | "timestamp" | "read">
+    ): Notification {
         const newNotification: Notification = {
             ...notification,
             id: `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -13,7 +19,12 @@ export class NotificationService {
         return newNotification;
     }
     
-    public static notifyTaskStatus(taskId: string, status: string, fileName: string) {
+    /** Create a notification from a task status update (Success/Failed/Pending). */
+    public static notifyTaskStatus(
+        taskId: string,
+        status: string,
+        fileName: string
+    ): Notification | null {
         // Skip notification if fileName is "Unknown"
         console.log("fileName", fileName);
         if (fileName === "Unknown file") {

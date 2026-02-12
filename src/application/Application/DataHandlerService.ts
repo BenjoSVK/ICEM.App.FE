@@ -1,8 +1,8 @@
+import { AuthService } from "./AuthService";
+import { NotificationService } from "./NotificationService";
 import { DataPreparationService } from "./DataPreparationService";
 import { PredictionResponse, TaskStatusResponse, TiffFileResponse } from "../Domain/Response";
-import { AuthService } from './AuthService';
 import { TiffRecord } from "../Domain/Records";
-import { NotificationService } from './NotificationService';
 
 interface ProcessingTask {
     taskId: string;
@@ -10,12 +10,15 @@ interface ProcessingTask {
     startTime: number;
 }
 
-export class DataHandlerService extends DataPreparationService{
-
+/**
+ * Handles data operations: ZIP upload, TIFF/GeoJSON listing, prediction, task status, download, delete.
+ */
+export class DataHandlerService extends DataPreparationService {
     constructor() {
         super();
     }
 
+    /** Validate that the file is a ZIP containing only .tif/.tiff entries. */
     private async validateZipFile(file: File): Promise<{ isValid: boolean; message: string }> {
         if (!file.name.toLowerCase().endsWith('.zip')) {
             return { isValid: false, message: 'Please select a ZIP file' };
@@ -46,7 +49,8 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
-    public async handleZipData(fileInputElement: HTMLInputElement | null, setProgressText: (text: string) => void) {
+    /** Upload selected ZIP file via API and show progress/notifications. */
+    public async handleZipData(fileInputElement: HTMLInputElement | null, setProgressText: (text: string) => void): Promise<void> {
         const file = fileInputElement?.files?.[0];
         if (!file) return;
 
@@ -104,7 +108,8 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
-    public async handleFolderData(fileInputElement: HTMLInputElement | null) {
+    /** Prepare folder files for submission (legacy flow). */
+    public async handleFolderData(fileInputElement: HTMLInputElement | null): Promise<void> {
         
         var preparedData;
 
@@ -121,6 +126,7 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
+    /** Fetch list of TIFF files from the API. */
     public async getTiffFiles(): Promise<TiffFileResponse> {
         try {
             const response = await AuthService.fetchWithAuth(
@@ -136,6 +142,7 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
+    /** Start structure prediction for the given TIFF IDs; returns task_id. */
     public async predictStructureVPP2026(selectedIds: string[]): Promise<PredictionResponse> {
         try {
             // const integerIds = selectedIds.map(id => parseInt(id.replace(/\D/g, '')));
@@ -148,7 +155,7 @@ export class DataHandlerService extends DataPreparationService{
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(integerIds),
+                    body: JSON.stringify({ tiff_ids: integerIds }),
                 }
             );
 
@@ -164,6 +171,7 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
+    /** Poll task status (Pending/Success/Failed) for the given Celery task id. */
     public async checkTaskStatus(taskId: string): Promise<TaskStatusResponse> {
         try {
             const response = await AuthService.fetchWithAuth(
@@ -183,7 +191,8 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
-    public async downloadGeoJSON(id: string, type: 'tissue' | 'cell'): Promise<void> {
+    /** Download GeoJSON file for the given id and type (tissue or cell). */
+    public async downloadGeoJSON(id: string, type: "tissue" | "cell"): Promise<void> {
         try {
             // id = id.split('mask_')[1].split('.')[0];
             const response = await AuthService.fetchWithAuth(
@@ -208,12 +217,14 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
+    /** Read persisted processing tasks from localStorage. */
     public getStoredTasks(): ProcessingTask[] {
         const tasks = localStorage.getItem('processingTasks');
         return tasks ? JSON.parse(tasks) : [];
     }
 
-    public storeTask(taskId: string, recordIds: string[]) {
+    /** Persist a processing task to localStorage. */
+    public storeTask(taskId: string, recordIds: string[]): void {
         const tasks = this.getStoredTasks();
         tasks.push({
             taskId,
@@ -223,11 +234,13 @@ export class DataHandlerService extends DataPreparationService{
         localStorage.setItem('processingTasks', JSON.stringify(tasks));
     }
 
-    public removeTask(taskId: string) {
+    /** Remove a task from persisted processing tasks. */
+    public removeTask(taskId: string): void {
         const tasks = this.getStoredTasks().filter(task => task.taskId !== taskId);
         localStorage.setItem('processingTasks', JSON.stringify(tasks));
     }
 
+    /** Delete TIFF and related data for the given id via API. */
     public async deleteTiffData(id: string): Promise<void> {
         try {
             id = id.split('.')[0];
@@ -247,10 +260,12 @@ export class DataHandlerService extends DataPreparationService{
         }
     }
 
-    public storeRecordStatuses(records: TiffRecord[]) {
+    /** Persist TIFF record statuses to localStorage. */
+    public storeRecordStatuses(records: TiffRecord[]): void {
         localStorage.setItem('recordStatuses', JSON.stringify(records));
     }
 
+    /** Read persisted TIFF record statuses from localStorage. */
     public getStoredRecordStatuses(): TiffRecord[] {
         const stored = localStorage.getItem('recordStatuses');
         return stored ? JSON.parse(stored) : [];
